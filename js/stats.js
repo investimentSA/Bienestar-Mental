@@ -1,208 +1,118 @@
-import { auth, db } from './auth.js';
+// Correcciones y mejoras en auth.js, goals.js y stats.js
 
-// Export the main function
-export async function loadStats() {
-  const userId = auth.currentUser.uid;
-
-  try {
-    // Cargar datos de estados de ánimo
-    const moodStats = await getMoodStats(userId);
-    createMoodChart(moodStats);
-
-    // Cargar datos de objetivos
-    const goalStats = await getGoalStats(userId);
-    createGoalsChart(goalStats);
-
-    // Actualizar resumen de estadísticas
-    updateStatsSummary(moodStats, goalStats);
-  } catch (error) {
-    console.error('Error loading stats:', error);
-  }
-}
-
-async function getMoodStats(userId) {
-  const snapshot = await db.collection('moods')
-    .where('userId', '==', userId)
-    .orderBy('timestamp', 'desc')
-    .get();
-
-  const stats = {
-    happy: 0,
-    neutral: 0,
-    sad: 0,
-    angry: 0,
-    excited: 0
-  };
-
-  snapshot.forEach(doc => {
-    const mood = doc.data().mood;
-    stats[mood]++;
-  });
-
-  return stats;
-}
-
-async function getGoalStats(userId) {
-  const snapshot = await db.collection('goals')
-    .where('userId', '==', userId)
-    .get();
-
-  const stats = {
-    completed: 0,
-    total: 0,
-    daily: { completed: 0, total: 0 },
-    weekly: { completed: 0, total: 0 },
-    monthly: { completed: 0, total: 0 }
-  };
-
-  snapshot.forEach(doc => {
-    const goal = doc.data();
-    stats.total++;
-    stats[goal.type].total++;
+// AUTH.JS - Manejo de errores al cargar el dashboard
+export async function showDashboard(user) {
+    document.getElementById('auth-screen').classList.remove('active');
+    document.getElementById('dashboard').classList.add('active');
     
-    if (goal.completed) {
-      stats.completed++;
-      stats[goal.type].completed++;
+    try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        document.getElementById('user-name').textContent = userDoc.exists() ? userDoc.data().name : 'Usuario';
+    } catch (error) {
+        console.error('Error loading user info:', error);
+        document.getElementById('user-name').textContent = 'Usuario';
     }
-  });
+    
+    // Cargar datos del dashboard sin detener la carga general si falla alguna parte
+    await Promise.allSettled([
+        loadMoodHistory(),
+        loadGoals(),
+        loadAdvice(),
+        loadStats()
+    ]);
+}
 
-  return stats;
+// GOALS.JS - Manejo de autenticación antes de cargar objetivos
+export async function loadGoals() {
+    if (!auth.currentUser) {
+        console.warn('Usuario no autenticado');
+        return;
+    }
+    const userId = auth.currentUser.uid;
+    const types = ['daily', 'weekly', 'monthly'];
+    
+    types.forEach(async type => {
+        const listElement = document.getElementById(`${type}-goals-list`);
+        if (!listElement) return;
+        listElement.innerHTML = '';
+        
+        try {
+            const goalsQuery = query(
+                collection(db, 'goals'),
+                where('userId', '==', userId),
+                where('type', '==', type),
+                orderBy('createdAt', 'desc')
+            );
+            const snapshot = await getDocs(goalsQuery);
+            snapshot.forEach(doc => {
+                const goal = doc.data();
+                const goalElement = document.createElement('div');
+                goalElement.className = 'goal-item';
+                goalElement.innerHTML = `
+                    <input type="checkbox" ${goal.completed ? 'checked' : ''} onchange="toggleGoal('${doc.id}', this.checked)">
+                    <span class="${goal.completed ? 'completed' : ''}">${goal.description}</span>
+                    <button onclick="deleteGoal('${doc.id}')" class="delete-btn">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                listElement.appendChild(goalElement);
+            });
+        } catch (error) {
+            console.error('Error loading goals:', error);
+            listElement.innerHTML = '<p>Error cargando objetivos.</p>';
+        }
+    });
+}
+
+// STATS.JS - Fix en consultas a Firestore y verificación de elementos en DOM
+async function getMoodStats(userId) {
+    const moodsRef = collection(db, 'moods');
+    const moodQuery = query(moodsRef, where('userId', '==', userId), orderBy('timestamp', 'desc'));
+    const snapshot = await getDocs(moodQuery);
+    
+    const stats = { happy: 0, neutral: 0, sad: 0, angry: 0, excited: 0 };
+    snapshot.forEach(doc => {
+        const mood = doc.data().mood;
+        stats[mood]++;
+    });
+    return stats;
 }
 
 function createMoodChart(moodStats) {
-  const ctx = document.getElementById('mood-chart').getContext('2d');
-  
-  new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['Feliz', 'Neutral', 'Triste', 'Enojado', 'Emocionado'],
-      datasets: [{
-        data: [
-          moodStats.happy,
-          moodStats.neutral,
-          moodStats.sad,
-          moodStats.angry,
-          moodStats.excited
-        ],
-        backgroundColor: [
-          '#ffd93d',
-          '#6c757d',
-          '#4834d4',
-          '#eb4d4b',
-          '#6c5ce7'
-        ]
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: 'bottom'
-        }
-      }
-    }
-  });
-}
-
-function createGoalsChart(goalStats) {
-  const ctx = document.getElementById('goals-chart').getContext('2d');
-  
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Diarios', 'Semanales', 'Mensuales'],
-      datasets: [{
-        label: 'Completados',
-        data: [
-          goalStats.daily.completed,
-          goalStats.weekly.completed,
-          goalStats.monthly.completed
-        ],
-        backgroundColor: '#6c5ce7'
-      }, {
-        label: 'Total',
-        data: [
-          goalStats.daily.total,
-          goalStats.weekly.total,
-          goalStats.monthly.total
-        ],
-        backgroundColor: '#a8a4e6'
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            stepSize: 1
-          }
-        }
-      }
-    }
-  });
-}
-
-function getMoodEmoji(mood) {
-  const emojis = {
-    happy: '😊',
-    neutral: '😐',
-    sad: '😢',
-    angry: '😠',
-    excited: '🤩'
-  };
-  return emojis[mood] || '😐';
-}
-
-function updateStatsSummary(moodStats, goalStats) {
-  // Calcular racha actual
-  const streak = calculateStreak();
-  document.getElementById('current-streak').textContent = `${streak} días`;
-
-  // Mostrar total de objetivos completados
-  document.getElementById('completed-goals').textContent = goalStats.completed;
-
-  // Encontrar el estado de ánimo más frecuente
-  const frequentMood = Object.entries(moodStats)
-    .reduce((a, b) => a[1] > b[1] ? a : b)[0];
-  
-  document.getElementById('frequent-mood').textContent = 
-    `${getMoodEmoji(frequentMood)} ${frequentMood}`;
-}
-
-async function calculateStreak() {
-  const userId = auth.currentUser.uid;
-  const now = new Date();
-  let streak = 0;
-  
-  try {
-    const snapshot = await db.collection('moods')
-      .where('userId', '==', userId)
-      .orderBy('timestamp', 'desc')
-      .get();
-
-    let lastDate = now;
-    
-    snapshot.forEach(doc => {
-      const moodDate = doc.data().timestamp.toDate();
-      const dayDiff = Math.floor(
-        (lastDate - moodDate) / (1000 * 60 * 60 * 24)
-      );
-      
-      if (dayDiff <= 1) {
-        streak++;
-        lastDate = moodDate;
-      } else {
-        return;
-      }
+    const canvas = document.getElementById('mood-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Feliz', 'Neutral', 'Triste', 'Enojado', 'Emocionado'],
+            datasets: [{
+                data: [moodStats.happy, moodStats.neutral, moodStats.sad, moodStats.angry, moodStats.excited],
+                backgroundColor: ['#ffd93d', '#6c757d', '#4834d4', '#eb4d4b', '#6c5ce7']
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
-    
-    return streak;
-  } catch (error) {
-    console.error('Error calculating streak:', error);
-    return 0;
-  }
 }
 
-// Make the loadStats function available globally as well
-window.loadStats = loadStats;
+// Funciones adicionales para gráficos de estadísticas
+function createGoalsChart(goalStats) {
+    const ctx = document.getElementById('goals-chart')?.getContext('2d');
+    if (!ctx) return;
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Diarios', 'Semanales', 'Mensuales'],
+            datasets: [{
+                label: 'Completados',
+                data: [goalStats.daily.completed, goalStats.weekly.completed, goalStats.monthly.completed],
+                backgroundColor: '#6c5ce7'
+            }, {
+                label: 'Total',
+                data: [goalStats.daily.total, goalStats.weekly.total, goalStats.monthly.total],
+                backgroundColor: '#a8a4e6'
+            }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+}

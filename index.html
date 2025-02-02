@@ -1,0 +1,234 @@
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoodTracker Pro</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+  <div id="app">
+    <!-- Login/Register Screen -->
+    <div id="auth-screen" class="screen active">
+      <div class="auth-container">
+        <div class="logo">
+          <i class="fas fa-brain"></i>
+          <h1>MoodTracker Pro</h1>
+        </div>
+        
+        <div class="tabs">
+          <button class="tab-btn active" onclick="showTab('login')">Iniciar Sesión</button>
+          <button class="tab-btn" onclick="showTab('register')">Registrarse</button>
+        </div>
+
+        <div id="login-form" class="auth-form active">
+          <input type="email" placeholder="Email" id="login-email">
+          <input type="password" placeholder="Contraseña" id="login-password">
+          <button onclick="login()">Iniciar Sesión</button>
+        </div>
+
+        <div id="register-form" class="auth-form">
+          <input type="text" placeholder="Nombre" id="register-name">
+          <input type="email" placeholder="Email" id="register-email">
+          <input type="password" placeholder="Contraseña" id="register-password">
+          <button onclick="register()">Registrarse</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="screen">
+      <nav class="sidebar">
+        <div class="logo">
+          <i class="fas fa-brain"></i>
+          <span>MoodTracker Pro</span>
+        </div>
+        <div class="nav-links">
+          <a href="#" class="active" onclick="showSection('mood')">
+            <i class="fas fa-heart"></i>
+            <span>Estado de Ánimo</span>
+          </a>
+          <a href="#" onclick="showSection('goals')">
+            <i class="fas fa-bullseye"></i>
+            <span>Objetivos</span>
+          </a>
+          <a href="#" onclick="showSection('advice')">
+            <i class="fas fa-lightbulb"></i>
+            <span>Consejos</span>
+          </a>
+          <a href="#" onclick="showSection('stats')">
+            <i class="fas fa-chart-line"></i>
+            <span>Estadísticas</span>
+          </a>
+        </div>
+        <div class="user-info">
+          <img src="https://via.placeholder.com/40" alt="User" class="avatar">
+          <span id="user-name">Usuario</span>
+          <button onclick="logout()"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+      </nav>
+
+      <main class="content">
+        <!-- Mood Section -->
+        <section id="mood-section" class="section active">
+          <h2>Estado de Ánimo</h2>
+          <div class="mood-input">
+            <div class="mood-selector">
+              <button class="mood-btn" data-mood="happy">😊</button>
+              <button class="mood-btn" data-mood="neutral">😐</button>
+              <button class="mood-btn" data-mood="sad">😢</button>
+              <button class="mood-btn" data-mood="angry">😠</button>
+              <button class="mood-btn" data-mood="excited">🤩</button>
+            </div>
+            <textarea id="mood-comment" placeholder="¿Cómo te sientes hoy?"></textarea>
+            <button onclick="saveMood()" class="primary-btn">Publicar</button>
+          </div>
+          <div id="mood-history" class="history-container"></div>
+        </section>
+
+        <!-- Goals Section -->
+        <section id="goals-section" class="section">
+          <h2>Objetivos</h2>
+          <div class="goals-container">
+            <div class="goals-type">
+              <h3>Objetivos Diarios</h3>
+              <div class="goal-input">
+                <input type="text" id="daily-goal" placeholder="Nuevo objetivo diario">
+                <button onclick="addGoal('daily')" class="primary-btn">Añadir</button>
+              </div>
+              <div id="daily-goals-list" class="goals-list"></div>
+            </div>
+
+            <div class="goals-type">
+              <h3>Objetivos Semanales</h3>
+              <div class="goal-input">
+                <input type="text" id="weekly-goal" placeholder="Nuevo objetivo semanal">
+                <button onclick="addGoal('weekly')" class="primary-btn">Añadir</button>
+              </div>
+              <div id="weekly-goals-list" class="goals-list"></div>
+            </div>
+
+            <div class="goals-type">
+              <h3>Objetivos Mensuales</h3>
+              <div class="goal-input">
+                <input type="text" id="monthly-goal" placeholder="Nuevo objetivo mensual">
+                <button onclick="addGoal('monthly')" class="primary-btn">Añadir</button>
+              </div>
+              <div id="monthly-goals-list" class="goals-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Advice Section -->
+        <section id="advice-section" class="section">
+          <h2>Consejos Personalizados</h2>
+          <div class="advice-container">
+            <div id="mood-advice" class="advice-card">
+              <h3>Basado en tu estado de ánimo</h3>
+              <div id="mood-advice-content"></div>
+            </div>
+            <div class="advice-categories">
+              <div class="advice-card">
+                <h3>Ejercicio y Salud</h3>
+                <ul id="health-advice"></ul>
+              </div>
+              <div class="advice-card">
+                <h3>Productividad</h3>
+                <ul id="productivity-advice"></ul>
+              </div>
+              <div class="advice-card">
+                <h3>Bienestar Mental</h3>
+                <ul id="mental-advice"></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section id="stats-section" class="section">
+          <h2>Estadísticas y Progreso</h2>
+          <div class="stats-container">
+            <div class="stat-card">
+              <h3>Estado de Ánimo</h3>
+              <canvas id="mood-chart"></canvas>
+            </div>
+            <div class="stat-card">
+              <h3>Objetivos Completados</h3>
+              <canvas id="goals-chart"></canvas>
+            </div>
+            <div class="stats-summary">
+              <div class="stat-item">
+                <h4>Racha Actual</h4>
+                <p id="current-streak">0 días</p>
+              </div>
+              <div class="stat-item">
+                <h4>Objetivos Completados</h4>
+                <p id="completed-goals">0</p>
+              </div>
+              <div class="stat-item">
+                <h4>Estado más Frecuente</h4>
+                <p id="frequent-mood">-</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+    import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+    import { initAuth } from "./js/auth.js";
+    import { initMood } from './js/mood.js';
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDpxgAweaHW-uIvYtoyM3kKyNK0WskUMuA",
+      authDomain: "moodtracker-pro.firebaseapp.com",
+      projectId: "moodtracker-pro",
+      storageBucket: "moodtracker-pro.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abc123def456"
+    };
+
+    async function initApp() {  
+      try {
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Enable offline persistence
+        try {
+          await enableIndexedDbPersistence(db);
+          console.log('Offline persistence enabled');
+        } catch (err) {
+          if (err.code == 'failed-precondition') {
+            console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time');
+          } else if (err.code == 'unimplemented') {
+            console.warn('The current browser doesn\'t support all of the features required to enable persistence');
+          }
+        }
+
+        // Initialize modules
+        initAuth(app);
+        initMood(getAuth(app), db);
+
+      } catch (error) {
+        console.error('Error initializing app:', error);
+      }
+    }
+
+    // Start the app
+    initApp();  
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" src="js/mood.js"></script>
+  <script type="module" src="js/goals.js"></script>
+  <script type="module" src="js/advice.js"></script>
+  <script type="module" src="js/stats.js"></script>
+</body>
+</html>
